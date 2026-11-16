@@ -124,6 +124,13 @@ python3 tools/muse_status.py --data "$DATA_DIR" --json --sample 5
 - 记录证据；
 - 检查是否绕过单实例/手工重复启动。
 
+## 4.9 看门狗重启
+
+- Muse 重启后：重启看门狗进程；它自己获取锁并恢复。
+- 检查 `state/tasks.json` 的 `segIndex`、`pid`、`nextRetryAt`。
+- 若看门狗报 "another watchdog instance holds the lock"：说明旧实例仍在，不要强杀；先确认。
+- 若旧 ffmpeg 存活但无法核实身份：不要手动启动第二个，升级用户。
+
 ## 5. 汇报模板
 
 ### 正常

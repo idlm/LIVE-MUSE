@@ -24,3 +24,10 @@
 - 不要在本仓库放入 Cookie/token/真实签名 URL。
 - 不要让 Muse 重复启动录制器。
 - 不要把“监控正常”当成“长稳验收”；长稳仍需 2h/24h/72h 证据。
+
+## 看门狗
+
+- `tools/muse_watchdog.py`：独立进程，持有 ffmpeg、单实例锁、10 分钟 m3u8 快照、顺序启动、max+1 续段。
+- 配置：`config/muse.rooms.example.json`（`input_mode=snapshot|remote`）。
+- 文档：`docs/WATCHDOG.md`。
+- 单元测试：`python3 -m unittest discover -s tests -v`（8 tests）。

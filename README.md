@@ -62,6 +62,21 @@ LIVE-MUSE/
     └── muse.example.json   # 配置示例(超时/阈值/轮询)
 ```
 
+## 独立看门狗（推荐）
+
+Muse 会重置/重启，独立看门狗负责持有 ffmpeg 和持久化任务：
+
+```bash
+python3 tools/muse_watchdog.py --config config/muse.rooms.json
+```
+
+- 每 10 分钟抓取/保存 m3u8 快照（10 分钟内复用，不重复请求）
+- 启动后按顺序拉起任务，单实例锁，已有进程只附着不重复启动
+- 失败快速退避，之后每 5 分钟慢速探测
+- 从已有文件 `max+1` 续录，旧文件不覆盖
+
+详见 [docs/WATCHDOG.md](docs/WATCHDOG.md)。
+
 ## 快速使用
 
 1. 在值守机器上安装并配置 Live.Monitor。

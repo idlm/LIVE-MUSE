@@ -1,0 +1,67 @@
+{
+  "refresh_seconds": 600,
+  "fetch_timeout_seconds": 20,
+  "start_gap_seconds": 3,
+  "stall_seconds": 60,
+  "fast_retry_max": 10,
+  "fast_retry_base_seconds": 10,
+  "fast_retry_cap_seconds": 300,
+  "slow_retry_seconds": 300,
+  "slow_retry_max": 288,
+  "ffmpeg": "/usr/bin/ffmpeg",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+  "proxy": "",
+  "recording": {
+    "root": "/srv/live-monitor/recordings",
+    "segment_seconds": 600
+  },
+  "rooms": [
+    {
+      "id": "pandalive:exampleA",
+      "platform": "pandalive",
+      "userId": "exampleA",
+      "nick": "Panda-A",
+      "enabled": true,
+      "quality": "highest",
+      "source": {
+        "type": "m3u8",
+        "url": "https://cdn.example/live.m3u8?token=REPLACE_ME",
+        "headers": {
+          "Origin": "https://www.pandalive.co.kr",
+          "Referer": "https://www.pandalive.co.kr/"
+        }
+      }
+    },
+    {
+      "id": "soop:exampleB",
+      "platform": "soop",
+      "userId": "exampleB",
+      "nick": "Soop-B",
+      "enabled": true,
+      "quality": "1920x1080",
+      "source": {
+        "type": "command",
+        "command": [
+          "python3",
+          "/opt/live-monitor/fetch_source.py",
+          "soop:exampleB"
+        ],
+        "timeout": 20
+      }
+    },
+    {
+      "id": "pandalive:exampleC",
+      "platform": "pandalive",
+      "userId": "exampleC",
+      "nick": "Panda-C",
+      "enabled": false,
+      "quality": "highest",
+      "source": {
+        "type": "lkg",
+        "lkg_file": "/home/youruser/.config/pandalive-monitor/data/lkg-sources.json"
+      }
+    }
+  ],
+  "input_mode": "snapshot",
+  "_input_mode_help": "snapshot=ffmpeg reads saved m3u8 (no custom headers); remote=ffmpeg reads fresh resolved URL (supports headers; snapshot kept as LKG fallback)"
+}

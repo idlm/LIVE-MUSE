@@ -136,6 +136,20 @@ python3 tools/muse_status.py --data "$DATA_DIR" --json --sample 5
   - 记录平台原话（脱敏）、时间、房间；
   - 升级用户处理网络/授权。
 
+## 看门狗（Muse 重启后的执行入口）
+
+如果值守环境使用独立看门狗：
+
+```bash
+python3 tools/muse_watchdog.py --config config/muse.rooms.json
+```
+
+- Muse 重启后，先重启看门狗；它会用文件锁保证只跑一个实例。
+- 看门狗会在 10 分钟内复用已保存 m3u8；启动时按 `rooms[]` 顺序拉起任务。
+- 已有同房间 ffmpeg 存活时只附着监控，不重复启动。
+- 重启后从 `max+1` 续段；旧文件不覆盖。
+- 不要手动再启动同一房间；不要删除 `state/`。
+
 ## 你可以做的动作
 
 - 读取状态、日志、检查点、录像文件大小；
