@@ -103,3 +103,15 @@ python3 tools/muse_status.py --data "$DATA_DIR" --json --sample 5
 ## License
 
 本仓库文档与工具为 MIT。Live.Monitor 基于 Joftal/SODALive-Monitor v2.0.0（MIT）。
+
+## systemd（Muse 重启不影响看门狗）
+
+示例单元：`deploy/live-muse-watchdog.service`
+
+```bash
+sudo cp deploy/live-muse-watchdog.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now live-muse-watchdog
+```
+
+`KillMode=process` 只重启看门狗主进程；ffmpeg 子进程由新看门狗认领，`max+1` 续录。

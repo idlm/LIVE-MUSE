@@ -1,0 +1,28 @@
+# Example systemd unit. Adjust paths/user before installing.
+# Install:
+#   sudo cp deploy/live-muse-watchdog.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now live-muse-watchdog
+# Muse restarts do not stop this unit. The watchdog owns ffmpeg children.
+[Unit]
+Description=Live.Monitor Muse watchdog (HLS snapshots + recording)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=youruser
+Group=youruser
+WorkingDirectory=/opt/LIVE-MUSE
+ExecStart=/usr/bin/python3 /opt/LIVE-MUSE/tools/muse_watchdog.py --config /etc/live-muse/muse.rooms.json --state /var/lib/live-muse
+Restart=always
+RestartSec=5
+# Only stop the watchdog process; ffmpeg children are monitored/adopted after restart.
+KillMode=process
+# State and recordings must be writable by the service user.
+ReadWritePaths=/var/lib/live-muse /srv/live-monitor/recordings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
