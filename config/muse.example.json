@@ -1,0 +1,20 @@
+{
+  "data_dir": "/home/youruser/.config/pandalive-monitor/data",
+  "poll_seconds": 60,
+  "full_check_seconds": 300,
+  "summary_seconds": 1800,
+  "sample_seconds": 5,
+  "thresholds": {
+    "media_watch_seconds": 120,
+    "media_stall_seconds": 300,
+    "disk_warn_gb": 2.0,
+    "disk_critical_gb": 0.5,
+    "fast_retry_max": 10,
+    "slow_retry_seconds": 300
+  },
+  "report": {
+    "include_recent_logs": 20,
+    "include_file_growth": true,
+    "redact_urls": true
+  }
+}
