@@ -454,6 +454,9 @@ class Watchdog:
         self.segment_seconds = int(rec.get("segment_seconds", 600))
         self.stall_seconds = int(config.get("stall_seconds", 60))
         self.refresh_seconds = int(config.get("refresh_seconds", 600))
+        # Check snapshot age frequently, but only fetch when it exceeds refresh_seconds.
+        # This keeps "about every 10 minutes" even after a Muse restart mid-window.
+        self.source_check_seconds = max(10, min(60, int(config.get("source_check_seconds", 30))))
         # snapshot: ffmpeg reads the saved m3u8 (no HTTP headers; best for public HLS)
         # remote:   ffmpeg reads the freshly resolved URL (supports headers; snapshot remains LKG fallback)
         self.input_mode = str(config.get("input_mode", "snapshot")).lower()
@@ -602,7 +605,7 @@ class Watchdog:
         self.load_state()
         self.refresh_all()
         self.start_all_sequential()
-        next_refresh = time.time() + self.refresh_seconds
+        next_refresh = time.time() + self.source_check_seconds
         try:
             while not self.stop_flag:
                 for key, t in list(self.tasks.items()):
@@ -622,7 +625,7 @@ class Watchdog:
                 now = time.time()
                 if now >= next_refresh:
                     self.refresh_all()
-                    next_refresh = now + self.refresh_seconds
+                    next_refresh = now + self.source_check_seconds
                 for key, t in self.tasks.items():
                     if t.next_retry_at and now_ms() >= t.next_retry_at:
                         t.next_retry_at = 0
