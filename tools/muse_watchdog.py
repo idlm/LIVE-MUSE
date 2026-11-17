@@ -172,6 +172,8 @@ class SourceManager:
         self.state_dir = state_dir
         self.log = log
         self.refresh_seconds = int(config.get("refresh_seconds", 600))
+        self.source_retry_seconds = max(10, int(config.get("source_retry_seconds", 60)))
+        self.source_retry_max_seconds = max(self.source_retry_seconds, int(config.get("source_retry_max_seconds", 300)))
         self.timeout = float(config.get("fetch_timeout_seconds", 20))
 
     def resolve_url(self, room: Room) -> tuple[str, dict[str, str]] | None:
@@ -208,20 +210,30 @@ class SourceManager:
         at = meta.get("fetched_at_ms") if isinstance(meta, dict) else None
         return None if not isinstance(at, (int, float)) else max(0, (now_ms() - at) / 1000)
 
+    def _fail_delay(self, meta: dict) -> int:
+        count = int(meta.get("fail_count") or 0)
+        return min(self.source_retry_max_seconds, self.source_retry_seconds * (2 ** min(count, 6)))
+
     def refresh(self, room: Room) -> tuple[Path | None, dict[str, str], bool, str]:
-        """Return (snapshot, headers, stale). Reuses a snapshot younger than refresh_seconds."""
+        """Return (snapshot, headers, stale, url). Reuses a snapshot younger than refresh_seconds."""
         age = self.snapshot_age(room)
         snap = room.snapshot_path(self.state_dir)
+        meta = load_json(room.meta_path(self.state_dir), {})
+        next_try = meta.get("next_try_ms") if isinstance(meta, dict) else None
+        if isinstance(next_try, (int, float)) and next_try > now_ms():
+            # Failure backoff: don't hammer upstream every 30s.
+            return (snap if snap.exists() else None), meta.get("headers") or {}, True, ""
         if age is not None and age <= self.refresh_seconds and snap.exists():
-            meta = load_json(room.meta_path(self.state_dir), {})
             return snap, meta.get("headers") or {}, False, ""
         hit = self.resolve_url(room)
         if not hit:
+            delay = self._fail_delay(meta)
+            meta = {**meta, "next_try_ms": now_ms() + delay * 1000, "fail_count": int(meta.get("fail_count") or 0) + 1}
+            atomic_write(room.meta_path(self.state_dir), json.dumps(meta, ensure_ascii=False, indent=1))
             if snap.exists():
-                self.log(f"source refresh failed for {room.key}; using stale snapshot ({int(age or 0)}s old)")
-                meta = load_json(room.meta_path(self.state_dir), {})
+                self.log(f"source refresh failed for {room.key}; using stale snapshot ({int(age or 0)}s old), retry in {delay}s")
                 return snap, meta.get("headers") or {}, True, ""
-            self.log(f"source refresh failed for {room.key}: no snapshot")
+            self.log(f"source refresh failed for {room.key}: no snapshot, retry in {delay}s")
             return None, {}, True, ""
         url, headers = hit
         try:
@@ -232,15 +244,18 @@ class SourceManager:
                 "room": room.key, "fetched_at_ms": now_ms(),
                 "sha256": hashlib.sha256(body.encode()).hexdigest(),
                 "headers": headers, "quality": room.quality,
+                "next_try_ms": 0, "fail_count": 0,
             }, ensure_ascii=False, indent=1))
             self.log(f"source saved for {room.key}: {len(body)} bytes")
             return snap, headers, False, url
         except Exception as e:
+            delay = self._fail_delay(meta)
+            meta = {**meta, "next_try_ms": now_ms() + delay * 1000, "fail_count": int(meta.get("fail_count") or 0) + 1}
+            atomic_write(room.meta_path(self.state_dir), json.dumps(meta, ensure_ascii=False, indent=1))
             if snap.exists():
-                self.log(f"source fetch failed for {room.key} ({type(e).__name__}); using stale snapshot")
-                meta = load_json(room.meta_path(self.state_dir), {})
+                self.log(f"source fetch failed for {room.key} ({type(e).__name__}); using stale snapshot, retry in {delay}s")
                 return snap, meta.get("headers") or {}, True, ""
-            self.log(f"source fetch failed for {room.key}: {type(e).__name__}")
+            self.log(f"source fetch failed for {room.key}: {type(e).__name__}, retry in {delay}s")
             return None, {}, True, ""
 
 
@@ -457,6 +472,8 @@ class Watchdog:
         # Check snapshot age frequently, but only fetch when it exceeds refresh_seconds.
         # This keeps "about every 10 minutes" even after a Muse restart mid-window.
         self.source_check_seconds = max(10, min(60, int(config.get("source_check_seconds", 30))))
+        self.source_retry_seconds = max(10, int(config.get("source_retry_seconds", 60)))
+        self.source_retry_max_seconds = max(self.source_retry_seconds, int(config.get("source_retry_max_seconds", 300)))
         # snapshot: ffmpeg reads the saved m3u8 (no HTTP headers; best for public HLS)
         # remote:   ffmpeg reads the freshly resolved URL (supports headers; snapshot remains LKG fallback)
         self.input_mode = str(config.get("input_mode", "snapshot")).lower()

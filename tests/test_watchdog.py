@@ -107,5 +107,43 @@ class SourceManagerTests(unittest.TestCase):
             srv.server_close()
 
 
+class SourceFailureBackoffTests(unittest.TestCase):
+    def test_failure_backoff_prevents_30s_storm(self):
+        count = {"n": 0}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                count["n"] += 1
+                self.send_response(404)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        srv = HTTPServer(("127.0.0.1", 0), Handler)
+        th = threading.Thread(target=srv.serve_forever, daemon=True)
+        th.start()
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                state = Path(td)
+                url = f"http://127.0.0.1:{srv.server_port}/missing.m3u8"
+                cfg = {"refresh_seconds": 600, "source_retry_seconds": 60, "fetch_timeout_seconds": 5}
+                room = wd.Room({"id": "pandalive:u1", "platform": "pandalive", "userId": "u1", "nick": "U1",
+                                "source": {"type": "m3u8", "url": url}}, 0)
+                sm = wd.SourceManager(cfg, state, lambda _m: None)
+                snap, _, stale, _ = sm.refresh(room)
+                self.assertIsNone(snap)
+                self.assertTrue(stale)
+                self.assertEqual(count["n"], 1)
+                # Immediate re-check (the 30s tick) must not hit upstream again.
+                snap2, _, stale2, _ = sm.refresh(room)
+                self.assertIsNone(snap2)
+                self.assertTrue(stale2)
+                self.assertEqual(count["n"], 1)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+
 if __name__ == "__main__":
     unittest.main()

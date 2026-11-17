@@ -64,5 +64,7 @@
   ],
   "input_mode": "snapshot",
   "_input_mode_help": "snapshot=ffmpeg reads saved m3u8 (no custom headers); remote=ffmpeg reads fresh resolved URL (supports headers; snapshot kept as LKG fallback)",
-  "source_check_seconds": 30
+  "source_check_seconds": 30,
+  "source_retry_seconds": 60,
+  "source_retry_max_seconds": 300
 }
